@@ -1,0 +1,53 @@
+# context-cli
+
+Install:
+
+```
+composer require rasuvaeff/context-cli
+```
+
+Requires `ext-pcntl`, `ext-posix` (no Windows) and `rasuvaeff/context` ^0.3.
+
+## Rules
+
+- SIGTERM/SIGINT (configurable) cancel a context derived from your parent via
+  `withCancel()`; the code stops at its next check (`assertActive()`,
+  `sleep()`, `iterate()`, `is*()`), never mid-call.
+- The handler only calls `ContextController::requestCancel()`: no listener,
+  no application code runs inside a signal handler.
+- A second signal of the set restores the previous handlers and hands that
+  signal to them (PHP handler called; default disposition terminates; ignored
+  stays ignored) — Ctrl+C twice always stops the process.
+- One process, one handler table: two active scopes on one signal →
+  `LogicException`. `SIGKILL`/`SIGSTOP`/duplicates/empty → `InvalidArgumentException`.
+- Always restore: use `run()` or `restore()` in `finally`. The scope enables
+  `pcntl_async_signals(true)` and restores the previous mode.
+
+## API
+
+```php
+use Rasuvaeff\Context\Cli\SignalReceived;
+use Rasuvaeff\Context\Cli\SignalScope;
+use Rasuvaeff\Context\Context;
+use Rasuvaeff\Context\ContextCancelledException;
+
+// run(): install, call, restore (also when $work throws); returns $work's result
+$result = SignalScope::run(Context::background(), static function (Context $ctx): int {
+    $done = 0;
+    foreach ($ctx->iterate($jobs) as $job) { handle($job, $ctx); $done++; }
+    return $done;
+}, signals: [\SIGTERM, \SIGINT]);
+
+// manual
+$scope = SignalScope::listen(Context::background(), [\SIGTERM, \SIGINT, \SIGHUP]);
+try { work($scope->context()); } finally { $scope->restore(); }   // restore() is idempotent
+$scope->signal();                       // ?int: first signal received
+
+try { $ctx->assertActive(); } catch (ContextCancelledException $e) {
+    $e->getPrevious();                  // SignalReceived: ->signal() === SIGTERM, message "Received SIGTERM"
+}
+SignalReceived::name(\SIGTERM);         // "SIGTERM"; unknown → "signal 14"
+```
+
+Kubernetes/systemd: SIGTERM → grace period → SIGKILL; the longest step between
+two checks must fit in the grace period.
