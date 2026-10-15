@@ -21,7 +21,9 @@ Requires `ext-pcntl`, `ext-posix` (no Windows) and `rasuvaeff/context` ^0.3.
 - One process, one handler table: two active scopes on one signal →
   `LogicException`. `SIGKILL`/`SIGSTOP`/duplicates/empty → `InvalidArgumentException`.
 - Always restore: use `run()` or `restore()` in `finally`. The scope enables
-  `pcntl_async_signals(true)` and restores the previous mode.
+  `pcntl_async_signals(true)` and restores the previous mode. `restore()` also
+  cancels the scoped context (like Go's NotifyContext stop); a signal cause
+  already received is kept. Use the context only inside the scope.
 
 ## API
 

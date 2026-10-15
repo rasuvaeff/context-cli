@@ -96,7 +96,7 @@ $scope->signal();   // the first signal received, or null
 |---|---|
 | First signal of the set | `requestCancel(new SignalReceived($signal))`. Nothing else runs in the handler; the next check terminates the context, runs its `onTerminate()` listeners and throws `ContextCancelledException` with the `SignalReceived` as `previous` |
 | Second signal of the set | The scope restores the previous handlers and hands this signal to them: a PHP handler is called, the default disposition terminates the process (Ctrl+C twice stops a stuck worker), an ignored signal stays ignored |
-| `restore()` | Previous handlers and the previous `pcntl_async_signals()` mode come back; idempotent; the context keeps its state |
+| `restore()` | Previous handlers and the previous `pcntl_async_signals()` mode come back, then the scoped context is cancelled (like Go's `NotifyContext` stop) so it never stays attached to a long-lived parent; a signal cause already received is kept; idempotent |
 | Parent cancelled/expired | The scoped context terminates with it (it is `$parent->withCancel()`) |
 | `SIGKILL`, `SIGSTOP`, duplicates, empty set | `InvalidArgumentException` before anything is installed |
 | A signal already owned by another active scope | `LogicException` |

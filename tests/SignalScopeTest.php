@@ -115,8 +115,27 @@ final class SignalScopeTest
         Assert::false(pcntl_async_signals());
         $this->send(\SIGUSR1);
         Assert::same($this->previous, [\SIGUSR1]);
-        Assert::false($scope->context()->isTerminated());
         Assert::null($scope->signal());
+    }
+
+    public function restoringCancelsTheScopedContextAndReleasesTheParent(): void
+    {
+        [$parent] = Context::background()->withCancel();
+        $scope = SignalScope::listen($parent, self::SIGNALS);
+
+        $scope->restore();
+
+        try {
+            $scope->context()->assertActive();
+        } catch (ContextCancelledException $exception) {
+            Assert::null($exception->getPrevious());
+            Assert::false($parent->isTerminated());
+            Assert::same($this->childCount($parent), 0);
+
+            return;
+        }
+
+        throw new \LogicException('the scoped context was expected to be cancelled');
     }
 
     public function aLateRestoreDoesNotStealTheSignalFromTheNextScope(): void
@@ -157,14 +176,22 @@ final class SignalScopeTest
         Assert::same(pcntl_signal_get_handler(\SIGHUP), \SIG_DFL);
     }
 
-    public function restoringKeepsACancelledContextCancelled(): void
+    public function restoringKeepsTheSignalAsTheCause(): void
     {
         $scope = SignalScope::listen(Context::background(), self::SIGNALS);
         $this->send(\SIGUSR2);
 
         $scope->restore();
 
-        Assert::true($scope->context()->isCancelled());
+        try {
+            $scope->context()->assertActive();
+        } catch (ContextCancelledException $exception) {
+            Assert::same($exception->getPrevious()?->getMessage(), 'Received SIGUSR2');
+
+            return;
+        }
+
+        throw new \LogicException('a cancellation was expected');
     }
 
     public function aSignalOutsideTheSetIsNotHandled(): void
@@ -348,6 +375,14 @@ final class SignalScopeTest
             $this->send(\SIGUSR1);
             Assert::same($this->previous, [\SIGUSR1]);
         }
+    }
+
+    private function childCount(Context $context): int
+    {
+        $state = (new \ReflectionProperty(Context::class, 'state'))->getValue($context);
+        $children = \is_object($state) ? (new \ReflectionProperty($state, 'children'))->getValue($state) : [];
+
+        return \is_array($children) ? \count($children) : -1;
     }
 
     /** Sends the signal to this process and dispatches it before returning. */

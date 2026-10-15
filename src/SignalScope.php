@@ -120,9 +120,11 @@ final class SignalScope
     }
 
     /**
-     * Puts back the previous handlers and the previous async-signals mode.
-     * Idempotent. The context stays as it is: a cancelled one stays
-     * cancelled, an active one stays active.
+     * Puts back the previous handlers and the previous async-signals mode,
+     * then cancels the scoped context (like Go's `NotifyContext` stop): the
+     * context belongs to the scope, and an uncancelled child would stay
+     * attached to a long-lived parent forever. A context already cancelled
+     * by a signal keeps that cause. Idempotent.
      */
     public function restore(): void
     {
@@ -136,6 +138,8 @@ final class SignalScope
             unset(self::$owned[$signal]);
         }
         pcntl_async_signals($this->previousAsync);
+        $this->context->isTerminated();
+        $this->controller->cancel();
     }
 
     private function handle(int $signal): void
