@@ -165,6 +165,53 @@ final class SignalScopeTest
         Assert::true($scope->context()->isCancelled());
     }
 
+    public function aHandlerNotCallableFromTheScopeCountsAsTheDefaultDisposition(): void
+    {
+        $name = 'privateHandler';
+        pcntl_signal(\SIGUSR1, [$this, $name]);
+        $this->send(\SIGUSR1);
+        Assert::same($this->previous, [\SIGUSR1]);
+
+        $scope = SignalScope::listen(Context::background(), [\SIGUSR1]);
+        $scope->restore();
+
+        Assert::same(pcntl_signal_get_handler(\SIGUSR1), \SIG_DFL);
+        $this->privateHandler(\SIGUSR2);
+        Assert::same($this->previous, [\SIGUSR1, \SIGUSR2]);
+    }
+
+    public function aSecondSignalWithTheDefaultDispositionIsReRaised(): void
+    {
+        $scope = SignalScope::listen(Context::background(), [\SIGWINCH]);
+
+        $this->send(\SIGWINCH);
+        $this->send(\SIGWINCH);
+
+        Assert::same(pcntl_signal_get_handler(\SIGWINCH), \SIG_DFL);
+        Assert::same($scope->signal(), \SIGWINCH);
+
+        // The kernel ignores SIGWINCH by default, so the re-raise above is
+        // harmless but unobservable. Infection maps a mutant to the tests that
+        // execute its line in this process, so the observable check (a forked
+        // child that must die of the re-raised signal) lives in the same test.
+        $pid = pcntl_fork();
+        if ($pid === 0) {
+            try {
+                pcntl_signal(\SIGUSR1, \SIG_DFL);
+                SignalScope::listen(Context::background(), [\SIGUSR1]);
+                $this->send(\SIGUSR1);
+                $this->send(\SIGUSR1);
+            } finally {
+                posix_kill(posix_getpid(), \SIGKILL);
+            }
+        }
+
+        pcntl_waitpid($pid, $status);
+
+        Assert::true(pcntl_wifsignaled($status));
+        Assert::same(pcntl_wtermsig($status), \SIGUSR1);
+    }
+
     public function sighupCanBeHandled(): void
     {
         $scope = SignalScope::listen(Context::background(), [\SIGHUP]);
@@ -375,6 +422,12 @@ final class SignalScopeTest
             $this->send(\SIGUSR1);
             Assert::same($this->previous, [\SIGUSR1]);
         }
+    }
+
+    /** Registered by name: private, so not callable from SignalScope's scope. */
+    private function privateHandler(int $signal): void
+    {
+        $this->previous[] = $signal;
     }
 
     private function childCount(Context $context): int

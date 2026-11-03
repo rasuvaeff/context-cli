@@ -21,6 +21,8 @@ use Rasuvaeff\Context\ContextController;
  */
 final class SignalScope
 {
+    private const array DEFAULT_SIGNALS = [\SIGTERM, \SIGINT];
+
     /**
      * Signals currently owned by an active scope; one process, one handler table.
      *
@@ -53,8 +55,10 @@ final class SignalScope
      * @throws \InvalidArgumentException on an empty, duplicate or uncatchable signal
      * @throws \LogicException when another active scope owns one of the signals
      */
-    public static function listen(Context $parent, array $signals = [\SIGTERM, \SIGINT]): self
-    {
+    public static function listen(
+        Context $parent,
+        array $signals = self::DEFAULT_SIGNALS,
+    ): self {
         $signals = self::validated($signals);
 
         foreach ($signals as $signal) {
@@ -97,8 +101,11 @@ final class SignalScope
      *
      * @return T
      */
-    public static function run(Context $parent, callable $work, array $signals = [\SIGTERM, \SIGINT]): mixed
-    {
+    public static function run(
+        Context $parent,
+        callable $work,
+        array $signals = self::DEFAULT_SIGNALS,
+    ): mixed {
         $scope = self::listen($parent, $signals);
 
         try {
