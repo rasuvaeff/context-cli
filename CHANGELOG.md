@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   applies the deferred cancellation inside the signal handler, so no
   `onTerminate()` listener runs there and a throwing listener can no longer
   skip the forced exit. `restore()`/`run()` still cancel the context in the
-  normal flow (#3).
+  normal flow. README Security now says the previous PHP handler is called
+  from inside the signal handler on the second signal (#3).
 - Mutation testing now counts code that tests execute without naming it in
   `#[Covers]` (`infection --with-uncovered`, template `PublicVisibility`/
   `ProtectedVisibility` switches and default-parameter signature ignore). New

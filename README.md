@@ -119,9 +119,13 @@ longest step between two checks — one message's TTR — must fit in that perio
 
 ## Security
 
-The package installs process-wide signal handlers and restores them; it never
-runs application code inside a handler. A second signal deliberately falls
-back to the previous disposition, so an operator can always stop the process.
+The package installs process-wide signal handlers and restores them. Its own
+handler never runs the context's `onTerminate()` listeners or any other code of
+the scope: the first signal only records a cancellation request. A second
+signal deliberately falls back to the previous disposition, so an operator can
+always stop the process — when that disposition is a PHP handler installed
+before the scope, that handler is called from inside the signal handler, as it
+would have been without the scope.
 
 ## Examples
 
