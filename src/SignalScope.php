@@ -32,8 +32,6 @@ final class SignalScope
 
     private ?int $received = null;
 
-    private bool $restored = false;
-
     private bool $handlersRestored = false;
 
     /**
@@ -137,11 +135,6 @@ final class SignalScope
      */
     public function restore(): void
     {
-        if ($this->restored) {
-            return;
-        }
-
-        $this->restored = true;
         $this->restoreHandlers();
         $this->context->isTerminated();
         $this->controller->cancel();
