@@ -95,7 +95,7 @@ $scope->signal();   // the first signal received, or null
 | Event | What happens |
 |---|---|
 | First signal of the set | `requestCancel(new SignalReceived($signal))`. Nothing else runs in the handler; the next check terminates the context, runs its `onTerminate()` listeners and throws `ContextCancelledException` with the `SignalReceived` as `previous` |
-| Second signal of the set | The scope restores the previous handlers and hands this signal to them: a PHP handler is called, the default disposition terminates the process (Ctrl+C twice stops a stuck worker), an ignored signal stays ignored |
+| Second signal of the set | The scope restores the previous handlers and hands this signal to them: a PHP handler is called, the default disposition terminates the process (Ctrl+C twice stops a stuck worker), an ignored signal stays ignored. No listener runs in the handler: the context is cancelled by `restore()` (or `run()`) in the normal flow |
 | `restore()` | Previous handlers and the previous `pcntl_async_signals()` mode come back, then the scoped context is cancelled (like Go's `NotifyContext` stop) so it never stays attached to a long-lived parent; a signal cause already received is kept; idempotent |
 | Parent cancelled/expired | The scoped context terminates with it (it is `$parent->withCancel()`) |
 | `SIGKILL`, `SIGSTOP`, duplicates, empty set | `InvalidArgumentException` before anything is installed |
@@ -119,9 +119,13 @@ longest step between two checks — one message's TTR — must fit in that perio
 
 ## Security
 
-The package installs process-wide signal handlers and restores them; it never
-runs application code inside a handler. A second signal deliberately falls
-back to the previous disposition, so an operator can always stop the process.
+The package installs process-wide signal handlers and restores them. Its own
+handler never runs the context's `onTerminate()` listeners or any other code of
+the scope: the first signal only records a cancellation request. A second
+signal deliberately falls back to the previous disposition, so an operator can
+always stop the process — when that disposition is a PHP handler installed
+before the scope, that handler is called from inside the signal handler, as it
+would have been without the scope.
 
 ## Examples
 

@@ -32,7 +32,7 @@ final class SignalScope
 
     private ?int $received = null;
 
-    private bool $restored = false;
+    private bool $handlersRestored = false;
 
     /**
      * @param non-empty-list<int> $signals
@@ -135,18 +135,27 @@ final class SignalScope
      */
     public function restore(): void
     {
-        if ($this->restored) {
+        $this->restoreHandlers();
+        $this->context->isTerminated();
+        $this->controller->cancel();
+    }
+
+    /**
+     * The signal-safe half of {@see restore()}: touches only the handler
+     * table, never the context, so no listener runs.
+     */
+    private function restoreHandlers(): void
+    {
+        if ($this->handlersRestored) {
             return;
         }
 
-        $this->restored = true;
+        $this->handlersRestored = true;
         foreach ($this->signals as $signal) {
             pcntl_signal($signal, $this->previousHandlers[$signal] ?? \SIG_DFL);
             unset(self::$owned[$signal]);
         }
         pcntl_async_signals($this->previousAsync);
-        $this->context->isTerminated();
-        $this->controller->cancel();
     }
 
     private function handle(int $signal): void
@@ -162,9 +171,13 @@ final class SignalScope
         // signal to the previous disposition. A PHP handler is called
         // directly (re-raising would leave it queued while async signals are
         // off); the default disposition is re-raised so the kernel applies it
-        // (terminate); an ignored signal stays ignored.
+        // (terminate); an ignored signal stays ignored. Only the handlers
+        // are restored here: applying the deferred cancellation would run
+        // application listeners inside the handler, and one that throws
+        // would skip the re-raise. restore() in the caller's finally still
+        // cancels the context.
         $previous = $this->previousHandlers[$signal] ?? \SIG_DFL;
-        $this->restore();
+        $this->restoreHandlers();
 
         if ($previous instanceof \Closure) {
             $previous($signal, null);

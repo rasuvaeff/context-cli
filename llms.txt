@@ -13,11 +13,13 @@ Requires `ext-pcntl`, `ext-posix` (no Windows) and `rasuvaeff/context` ^0.3.
 - SIGTERM/SIGINT (configurable) cancel a context derived from your parent via
   `withCancel()`; the code stops at its next check (`assertActive()`,
   `sleep()`, `iterate()`, `is*()`), never mid-call.
-- The handler only calls `ContextController::requestCancel()`: no listener,
-  no application code runs inside a signal handler.
+- The first signal only calls `ContextController::requestCancel()`: no
+  listener runs inside a signal handler. On the second signal a previous PHP
+  handler (installed before the scope) is called from inside the handler.
 - A second signal of the set restores the previous handlers and hands that
   signal to them (PHP handler called; default disposition terminates; ignored
-  stays ignored) — Ctrl+C twice always stops the process.
+  stays ignored) — Ctrl+C twice always stops the process. It runs no listener:
+  the context is cancelled later by `restore()`/`run()` in the normal flow.
 - One process, one handler table: two active scopes on one signal →
   `LogicException`. `SIGKILL`/`SIGSTOP`/duplicates/empty → `InvalidArgumentException`.
 - Always restore: use `run()` or `restore()` in `finally`. The scope enables

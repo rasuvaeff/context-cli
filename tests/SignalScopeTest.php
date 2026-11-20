@@ -103,6 +103,38 @@ final class SignalScopeTest
         Assert::same($this->previous, [\SIGUSR2, \SIGUSR1]);
     }
 
+    public function aSecondSignalRunsNoListenerInsideTheHandler(): void
+    {
+        $scope = SignalScope::listen(Context::background(), self::SIGNALS);
+        $ran = false;
+        $scope->context()->onTerminate(static function () use (&$ran): void {
+            $ran = true;
+
+            throw new \DomainException('listener failed');
+        });
+
+        $this->send(\SIGUSR1);
+        $this->send(\SIGUSR1);
+
+        Assert::false($ran);
+        Assert::same($this->previous, [\SIGUSR1]);
+        Assert::false(pcntl_async_signals());
+
+        try {
+            $scope->restore();
+        } catch (\DomainException $exception) {
+            Assert::same($exception->getMessage(), 'listener failed');
+            Assert::true($ran);
+            Assert::true($scope->context()->isCancelled());
+            $this->send(\SIGUSR1);
+            Assert::same($this->previous, [\SIGUSR1, \SIGUSR1]);
+
+            return;
+        }
+
+        throw new \LogicException('the listener failure was expected from restore()');
+    }
+
     public function restoringPutsBackHandlersAndTheAsyncMode(): void
     {
         $scope = SignalScope::listen(Context::background(), self::SIGNALS);
