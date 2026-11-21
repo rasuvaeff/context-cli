@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.2 — 2026-11-21
+
+- Fixed: `SignalScope::listen()` with a signal number the kernel does not
+  know (`pcntl_signal_get_handler()` throws `ValueError`, e.g. 99 on Linux)
+  left a never-cancelled child context attached to the parent. The handlers
+  are now read before the scoped context is derived, so the failure leaves
+  nothing behind (#4).
+
 ## 0.1.1 — 2026-11-20
 
 - Fixed: the second signal only restores the previous handlers; it no longer
