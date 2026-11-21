@@ -456,6 +456,25 @@ final class SignalScopeTest
         }
     }
 
+    public function aSignalThatCannotBeInstalledLeavesNothingInstalled(): void
+    {
+        [$parent, $controller] = Context::background()->withCancel();
+
+        try {
+            SignalScope::listen($parent, [\SIGUSR1, 99]);
+        } catch (\ValueError) {
+            $this->send(\SIGUSR1);
+            Assert::same($this->previous, [\SIGUSR1]);
+            Assert::same($this->childCount($parent), 0);
+            SignalScope::listen(Context::background(), [\SIGUSR1])->restore();
+            $controller->cancel();
+
+            return;
+        }
+
+        throw new \LogicException('a signal number the kernel rejects was expected to fail');
+    }
+
     /** Registered by name: private, so not callable from SignalScope's scope. */
     private function privateHandler(int $signal): void
     {

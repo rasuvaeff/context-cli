@@ -67,11 +67,14 @@ final class SignalScope
             }
         }
 
-        [$context, $controller] = $parent->withCancel();
+        // Read the current handlers before deriving the scoped context: a
+        // signal number the kernel does not know throws here, and by then
+        // nothing may hang off the parent yet.
         $previousHandlers = [];
         foreach ($signals as $signal) {
             $previousHandlers[$signal] = self::currentHandler($signal);
         }
+        [$context, $controller] = $parent->withCancel();
 
         $scope = new self(
             context: $context,
