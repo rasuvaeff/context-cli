@@ -22,7 +22,7 @@
 
 - PHP 8.3+
 - `ext-pcntl`, `ext-posix` (Linux/macOS; на Windows их нет)
-- `rasuvaeff/context` ^0.3
+- `rasuvaeff/context` ^0.3 || ^0.5
 
 ## Установка
 

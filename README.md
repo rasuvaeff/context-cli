@@ -20,7 +20,7 @@ cleanly — on deploy, on Kubernetes pod termination, on Ctrl+C.
 
 - PHP 8.3+
 - `ext-pcntl`, `ext-posix` (Linux/macOS; not available on Windows)
-- `rasuvaeff/context` ^0.3
+- `rasuvaeff/context` ^0.3 || ^0.5
 
 ## Installation
 

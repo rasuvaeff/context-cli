@@ -24,10 +24,10 @@
         "source": "https://github.com/rasuvaeff/context-cli"
     },
     "require": {
-        "php": "8.3 - 8.5",
+        "php": "8.3 - 8.6",
         "ext-pcntl": "*",
         "ext-posix": "*",
-        "rasuvaeff/context": "^0.3"
+        "rasuvaeff/context": "^0.3 || ^0.5"
     },
     "require-dev": {
         "ergebnis/composer-normalize": "^2.51",
