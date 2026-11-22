@@ -6,7 +6,7 @@ Install:
 composer require rasuvaeff/context-cli
 ```
 
-Requires `ext-pcntl`, `ext-posix` (no Windows) and `rasuvaeff/context` ^0.3.
+Requires `ext-pcntl`, `ext-posix` (no Windows) and `rasuvaeff/context` ^0.3 || ^0.5.
 
 ## Rules
 
