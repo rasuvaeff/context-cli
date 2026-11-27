@@ -295,6 +295,69 @@ final class SignalScopeTest
         $scope->restore();
     }
 
+    /**
+     * @param list<int> $restoreOrder indexes into [SIGUSR1 scope, SIGUSR2 scope]
+     */
+    #[DataProvider('restoreOrderProvider')]
+    public function concurrentScopesKeepAsyncModeUntilTheLastOneIsRestored(array $restoreOrder): void
+    {
+        $scopes = [
+            SignalScope::listen(Context::background(), [\SIGUSR1]),
+            SignalScope::listen(Context::background(), [\SIGUSR2]),
+        ];
+
+        Assert::true(pcntl_async_signals());
+
+        $scopes[$restoreOrder[0]]->restore();
+
+        Assert::true(pcntl_async_signals());
+
+        $scopes[$restoreOrder[1]]->restore();
+
+        Assert::false(pcntl_async_signals());
+    }
+
+    public function anAsyncModeThatWasOnStaysOnAfterTheLastScope(): void
+    {
+        pcntl_async_signals(enable: true);
+        $first = SignalScope::listen(Context::background(), [\SIGUSR1]);
+        $second = SignalScope::listen(Context::background(), [\SIGUSR2]);
+
+        $first->restore();
+        $second->restore();
+
+        Assert::true(pcntl_async_signals());
+    }
+
+    public static function restoreOrderProvider(): iterable
+    {
+        yield 'creation order' => [[0, 1]];
+        yield 'reverse order' => [[1, 0]];
+    }
+
+    public function aSecondSignalKeepsAsyncModeWhileAnotherScopeIsActive(): void
+    {
+        $first = SignalScope::listen(Context::background(), [\SIGUSR1]);
+        $second = SignalScope::listen(Context::background(), [\SIGUSR2]);
+
+        $this->send(\SIGUSR1);
+        $this->send(\SIGUSR1);
+
+        Assert::same($this->previous, [\SIGUSR1]);
+        Assert::true(pcntl_async_signals());
+
+        $this->send(\SIGUSR2);
+        $this->send(\SIGUSR2);
+
+        Assert::same($this->previous, [\SIGUSR1, \SIGUSR2]);
+        Assert::false(pcntl_async_signals());
+
+        $first->restore();
+        $second->restore();
+
+        Assert::false(pcntl_async_signals());
+    }
+
     public function aSignalCanBeOwnedByOneScopeAtATime(): void
     {
         $scope = SignalScope::listen(Context::background(), self::SIGNALS);

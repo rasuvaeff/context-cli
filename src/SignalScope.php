@@ -30,6 +30,15 @@ final class SignalScope
      */
     private static array $owned = [];
 
+    /**
+     * The async-signals mode is global too: it is saved when the first scope
+     * becomes active and put back when the last one is restored, so scopes
+     * on disjoint signal sets do not hand each other's mode back.
+     */
+    private static int $active = 0;
+
+    private static bool $asyncBeforeScopes = false;
+
     private ?int $received = null;
 
     private bool $handlersRestored = false;
@@ -43,7 +52,6 @@ final class SignalScope
         private readonly ContextController $controller,
         private readonly array $signals,
         private readonly array $previousHandlers,
-        private readonly bool $previousAsync,
     ) {}
 
     /**
@@ -81,8 +89,12 @@ final class SignalScope
             controller: $controller,
             signals: $signals,
             previousHandlers: $previousHandlers,
-            previousAsync: pcntl_async_signals(),
         );
+
+        if (self::$active === 0) {
+            self::$asyncBeforeScopes = pcntl_async_signals();
+        }
+        ++self::$active;
 
         foreach ($signals as $signal) {
             self::$owned[$signal] = $scope;
@@ -130,8 +142,8 @@ final class SignalScope
     }
 
     /**
-     * Puts back the previous handlers and the previous async-signals mode,
-     * then cancels the scoped context (like Go's `NotifyContext` stop): the
+     * Puts back the previous handlers — and, when this is the last active
+     * scope, the async-signals mode from before the first one — then cancels the scoped context (like Go's `NotifyContext` stop): the
      * context belongs to the scope, and an uncancelled child would stay
      * attached to a long-lived parent forever. A context already cancelled
      * by a signal keeps that cause. Idempotent.
@@ -158,7 +170,9 @@ final class SignalScope
             pcntl_signal($signal, $this->previousHandlers[$signal] ?? \SIG_DFL);
             unset(self::$owned[$signal]);
         }
-        pcntl_async_signals($this->previousAsync);
+        if (--self::$active === 0) {
+            pcntl_async_signals(self::$asyncBeforeScopes);
+        }
     }
 
     private function handle(int $signal): void

@@ -96,13 +96,17 @@ $scope->signal();   // the first signal received, or null
 |---|---|
 | First signal of the set | `requestCancel(new SignalReceived($signal))`. Nothing else runs in the handler; the next check terminates the context, runs its `onTerminate()` listeners and throws `ContextCancelledException` with the `SignalReceived` as `previous` |
 | Second signal of the set | The scope restores the previous handlers and hands this signal to them: a PHP handler is called, the default disposition terminates the process (Ctrl+C twice stops a stuck worker), an ignored signal stays ignored. No listener runs in the handler: the context is cancelled by `restore()` (or `run()`) in the normal flow |
-| `restore()` | Previous handlers and the previous `pcntl_async_signals()` mode come back, then the scoped context is cancelled (like Go's `NotifyContext` stop) so it never stays attached to a long-lived parent; a signal cause already received is kept; idempotent |
+| `restore()` | Previous handlers come back (and, when this is the last active scope, the `pcntl_async_signals()` mode from before the first one), then the scoped context is cancelled (like Go's `NotifyContext` stop) so it never stays attached to a long-lived parent; a signal cause already received is kept; idempotent |
 | Parent cancelled/expired | The scoped context terminates with it (it is `$parent->withCancel()`) |
 | `SIGKILL`, `SIGSTOP`, duplicates, empty set | `InvalidArgumentException` before anything is installed |
 | A signal already owned by another active scope | `LogicException` |
 
 The scope enables `pcntl_async_signals(true)` while it is active, so signals
 are delivered between PHP opcodes without manual `pcntl_signal_dispatch()`.
+The mode is global: scopes on disjoint signal sets may be active at the same
+time, async stays on while any of them is active, and the mode from before the
+first scope comes back when the last one is restored (by `restore()` or by a
+second signal) — in any order.
 
 ### Kubernetes / systemd
 

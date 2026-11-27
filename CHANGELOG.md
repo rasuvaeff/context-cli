@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.4 — 2026-11-27
+
+- **Fixed:** two active scopes on disjoint signal sets no longer corrupt the
+  global `pcntl_async_signals()` mode: each scope saved and restored it on its
+  own, so restoring the first turned async off under the second, and the
+  original mode never came back. The mode is now saved when the first scope
+  becomes active and put back when the last one is restored, including by a
+  second signal (#10).
+
 ## 0.1.3 — 2026-11-22
 
 - **Changed:** PHP 8.6 is supported: the `php` constraint is widened to

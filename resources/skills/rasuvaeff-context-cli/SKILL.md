@@ -19,7 +19,9 @@ OS signals → `Context` cancellation for CLI processes. Namespace
 1. **Never install signal handlers by hand next to a scope.** One process has
    one handler table; a second scope on the same signal throws
    `LogicException`. Use `SignalScope::run()` (restores in `finally`) or
-   `listen()` + `restore()` in `finally`.
+   `listen()` + `restore()` in `finally`. Scopes on disjoint signal sets may
+   be active together: async signals stay on until the last of them is
+   restored, whatever the order.
 
 2. **Nothing runs in the handler.** The first signal only calls
    `requestCancel()`; work stops at the next `assertActive()` / `sleep()` /
