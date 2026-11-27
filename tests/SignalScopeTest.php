@@ -317,6 +317,18 @@ final class SignalScopeTest
         Assert::false(pcntl_async_signals());
     }
 
+    public function anAsyncModeThatWasOnStaysOnAfterTheLastScope(): void
+    {
+        pcntl_async_signals(enable: true);
+        $first = SignalScope::listen(Context::background(), [\SIGUSR1]);
+        $second = SignalScope::listen(Context::background(), [\SIGUSR2]);
+
+        $first->restore();
+        $second->restore();
+
+        Assert::true(pcntl_async_signals());
+    }
+
     public static function restoreOrderProvider(): iterable
     {
         yield 'creation order' => [[0, 1]];
